@@ -553,7 +553,7 @@ const CoffeeShopMap = () => {
       {/* Intro Page Loader */}
       <PageLoader isLoading={showIntro} />
 
-      <div className="h-screen w-full flex flex-col bg-gray-50 overflow-hidden">
+      <div className="min-h-dvh h-dvh w-full flex flex-col bg-gray-50 overflow-hidden">
         {/* Map Container */}
         <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
           {/* Navbar */}
