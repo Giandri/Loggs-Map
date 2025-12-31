@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
 
       console.log('Vercel Blob upload successful:', blob.url);
       return NextResponse.json(blob);
-    } catch (blobError) {
-      console.warn('Vercel Blob upload failed:', blobError.message || blobError);
+    } catch (blobError: unknown) {
+      const message = blobError instanceof Error ? blobError.message : String(blobError);
+      console.warn('Vercel Blob upload failed:', message);
 
       // Fallback: Return placeholder URL for development
       const placeholderUrl = `/api/placeholder/400/300?text=${encodeURIComponent(filename)}`;
