@@ -555,7 +555,7 @@ const CoffeeShopMap = () => {
 
       <div className="h-screen w-full flex flex-col bg-gray-50 overflow-hidden">
         {/* Map Container */}
-        <div ref={mapContainerRef} className="flex-1 relative">
+        <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
           {/* Navbar */}
           <Navbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
           <Footer />

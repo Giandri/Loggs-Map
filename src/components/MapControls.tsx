@@ -39,8 +39,8 @@ const ControlButton = ({ id, icon, onClick, title, isActive = false, delay = 0 }
     }}
     whileHover={{ scale: 1.1 }}
     whileTap={{ scale: 0.95 }}
-    className={`p-3 rounded-full shadow-sm border transition-colors ${isActive ? "bg-black border-black" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-    <motion.div className={`w-4 h-4 flex items-center justify-center ${isActive ? "text-white" : "text-gray-700"}`} whileHover={{ rotate: isActive ? 0 : 15 }} transition={{ duration: 0.2 }}>
+    className={`p-2.5 sm:p-3 rounded-full shadow-sm border transition-colors ${isActive ? "bg-black border-black" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+    <motion.div className={`w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center ${isActive ? "text-white" : "text-gray-700"}`} whileHover={{ rotate: isActive ? 0 : 15 }} transition={{ duration: 0.2 }}>
       {icon}
     </motion.div>
   </motion.button>
@@ -50,40 +50,40 @@ const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLo
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <motion.div id="map-controls" className="absolute right-6 bottom-8 z-1000" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.5 }}>
+    <motion.div id="map-controls" className="absolute right-3 bottom-4 sm:right-6 sm:bottom-8 z-1000" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.5 }}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <motion.button className="bg-white p-3 rounded-full shadow-md hover:bg-gray-50 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} animate={{ rotate: isOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
-            <Grid className="w-6 h-6 text-gray-700" />
+          <motion.button className="bg-white p-3 sm:p-4 rounded-full shadow-md hover:bg-gray-50 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} animate={{ rotate: isOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
+            <Grid className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
           </motion.button>
         </PopoverTrigger>
 
         <AnimatePresence>
           {isOpen && (
-            <PopoverContent side="left" align="end" className="w-auto p-2 z-1000 bg-white/90 backdrop-blur-sm border-white/50" asChild forceMount>
+            <PopoverContent side="left" align="end" className="w-auto max-w-[88vw] sm:max-w-[420px] p-2 sm:p-3 rounded-xl shadow-lg z-1000 bg-white/90 backdrop-blur-sm border-white/50 overflow-hidden" asChild forceMount>
               <motion.div initial={{ opacity: 0, x: 20, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 20, scale: 0.9 }} transition={{ duration: 0.2, ease: "easeOut" }}>
-                <motion.div className="flex flex-row gap-2">
+                <motion.div className="grid grid-cols-3 sm:flex sm:flex-nowrap gap-2 sm:gap-3 items-stretch max-w-full">
                   {/* Layer Switcher */}
-                  <ControlButton id="layer-switcher" icon={<Layers className="w-4 h-4" />} onClick={onLayerChange} title="Ganti Layer Peta" isActive={activeLayer === "street"} delay={0} />
+                  <ControlButton id="layer-switcher" icon={<Layers className="w-4 h-4 sm:w-5 sm:h-5" />} onClick={onLayerChange} title="Ganti Layer Peta" isActive={activeLayer === "street"} delay={0} />
 
                   {/* Guide / Help */}
-                  <ControlButton id="info-button" icon={<span className="text-sm font-medium">?</span>} onClick={onGuideOpen} title="Panduan Penggunaan" delay={1} />
+                  <ControlButton id="info-button" icon={<span className="text-sm sm:text-base font-medium">?</span>} onClick={onGuideOpen} title="Panduan Penggunaan" delay={1} />
 
                   {/* Filter */}
-                  <ControlButton icon={<Funnel className="w-4 h-4" />} onClick={onFilterClick} title="Filter" delay={2} />
+                  <ControlButton icon={<Funnel className="w-4 h-4 sm:w-5 sm:h-5" />} onClick={onFilterClick} title="Filter" delay={2} />
 
                   {/* Recenter */}
-                  <ControlButton icon={<Target className="w-4 h-4" />} onClick={onRecenter} title="Area Sekitar" delay={3} />
+                  <ControlButton icon={<Target className="w-4 h-4 sm:w-5 sm:h-5" />} onClick={onRecenter} title="Area Sekitar" delay={3} />
 
                   {/* My Location */}
                   <ControlButton
                     icon={
                       isLocating ? (
                         <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                          <MapPin className="w-4 h-4" />
+                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                         </motion.div>
                       ) : (
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                       )
                     }
                     onClick={onLocationClick}
@@ -93,7 +93,7 @@ const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLo
                   />
 
                   {/* Bookmarks */}
-                  <ControlButton icon={<Bookmark className="w-4 h-4 fill-current" />} onClick={onBookmarkClick} title="Favorit" delay={5} />
+                  <ControlButton icon={<Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />} onClick={onBookmarkClick} title="Favorit" delay={5} />
                 </motion.div>
               </motion.div>
             </PopoverContent>
