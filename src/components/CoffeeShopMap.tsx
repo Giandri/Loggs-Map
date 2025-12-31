@@ -314,8 +314,11 @@ const CoffeeShopMap = () => {
   const [nearbyShops, setNearbyShops] = useState<Array<CoffeeShop & { distance: number }>>([]);
   const [showNearbyPanel, setShowNearbyPanel] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [nearbyPanelScale, setNearbyPanelScale] = useState(1);
+  const [isPinchingNearbyPanel, setIsPinchingNearbyPanel] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const pinchStartDistanceRef = useRef<number | null>(null);
 
   // Pangkalpinang coordinates
   const mapCenter: [number, number] = [-2.1316, 106.1166];
@@ -536,6 +539,40 @@ const CoffeeShopMap = () => {
     setIsDrawerOpen(true);
   };
 
+  const getTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return null;
+    const [t1, t2] = [touches[0], touches[1]];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const handleNearbyTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = getTouchDistance(e.touches);
+      if (dist) {
+        pinchStartDistanceRef.current = dist;
+        setIsPinchingNearbyPanel(true);
+      }
+    }
+  };
+
+  const handleNearbyTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDistanceRef.current) {
+      const dist = getTouchDistance(e.touches);
+      if (!dist) return;
+      const rawScale = dist / pinchStartDistanceRef.current;
+      const clampedScale = Math.min(Math.max(rawScale, 0.9), 1.2);
+      setNearbyPanelScale(clampedScale);
+    }
+  };
+
+  const handleNearbyTouchEnd = () => {
+    pinchStartDistanceRef.current = null;
+    setIsPinchingNearbyPanel(false);
+    setNearbyPanelScale(1);
+  };
+
   const nextImage = () => {
     if (selectedShop?.photos && selectedShop.photos.length > 0) {
       setCurrentImageIndex((prev) => (prev === selectedShop.photos.length - 1 ? 0 : prev + 1));
@@ -661,16 +698,21 @@ const CoffeeShopMap = () => {
             {showNearbyPanel && nearbyShops.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, x: -20 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
+                animate={{ opacity: 1, scale: nearbyPanelScale, x: 0 }}
                 exit={{ opacity: 0, scale: 0.9, x: -20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                drag
+                drag={!isPinchingNearbyPanel}
                 dragConstraints={mapContainerRef}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
                 whileDrag={{ scale: 1.03, boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }}
-                className="absolute left-4 top-24 z-1000 w-72 bg-white/40 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden cursor-grab active:cursor-grabbing">
+                style={{ scale: nearbyPanelScale }}
+                onTouchStart={handleNearbyTouchStart}
+                onTouchMove={handleNearbyTouchMove}
+                onTouchEnd={handleNearbyTouchEnd}
+                onTouchCancel={handleNearbyTouchEnd}
+                className="absolute left-4 top-24 z-1000 w-72 sm:w-80 bg-white/40 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden cursor-grab active:cursor-grabbing touch-pan-y touch-pinch-zoom">
                 {/* Header - Black */}
                 <div className="p-3 bg-black text-white">
                   <div className="flex items-center justify-between">
@@ -686,7 +728,7 @@ const CoffeeShopMap = () => {
                 </div>
 
                 {/* List */}
-                <div className="max-h-64 overflow-y-auto bg-white/60">
+                <div className="max-h-64 sm:max-h-72 overflow-y-auto bg-white/60">
                   {nearbyShops.map((shop, index) => (
                     <motion.button
                       key={shop.id}
