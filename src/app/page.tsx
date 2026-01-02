@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 
 
-const CoffeeShopMap = dynamic(
-  () => import('@/components/CoffeeShopMap'),
+const Maps = dynamic(
+  () => import('@/components/Maps'),
   {
     ssr: false,
     loading: () => null
@@ -12,5 +12,5 @@ const CoffeeShopMap = dynamic(
 );
 
 export default function Home() {
-  return <CoffeeShopMap />;
+  return <Maps />;
 }

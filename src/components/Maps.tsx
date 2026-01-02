@@ -297,7 +297,7 @@ const CoffeeMarker = ({ shop, isSelected, onClick }: { shop: CoffeeShop; isSelec
   );
 };
 
-const CoffeeShopMap = () => {
+const Maps = () => {
   const [selectedShop, setSelectedShop] = useState<CoffeeShop | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -319,6 +319,16 @@ const CoffeeShopMap = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const pinchStartDistanceRef = useRef<number | null>(null);
+  const [controlsOpen, setControlsOpen] = useState(false);
+
+  const handleStepChange = useCallback((stepId: string) => {
+    const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "help"];
+    if (internalControlSteps.includes(stepId)) {
+      setControlsOpen(true);
+    } else {
+      setControlsOpen(false);
+    }
+  }, []);
 
   // Pangkalpinang coordinates
   const mapCenter: [number, number] = [-2.1316, 106.1166];
@@ -677,6 +687,8 @@ const CoffeeShopMap = () => {
             onRecenter={handleRecenter}
             onLocationClick={handleGetUserLocation}
             isLocating={isLocating}
+            isOpen={controlsOpen}
+            onOpenChange={setControlsOpen}
           />
 
           {/* Location Error Toast */}
@@ -786,7 +798,7 @@ const CoffeeShopMap = () => {
         </div>
 
         {/* Guide Step Component */}
-        <GuideStep isOpen={showGuide} onClose={() => setShowGuide(false)} />
+        <GuideStep isOpen={showGuide} onClose={() => setShowGuide(false)} onStepChange={handleStepChange} />
 
         {/* Coffee Shop Detail Drawer */}
         <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
@@ -1038,4 +1050,4 @@ const CoffeeShopMap = () => {
   );
 };
 
-export default CoffeeShopMap;
+export default Maps;
