@@ -6,6 +6,30 @@ export const useCookieConsent = () => {
   const [consentStatus, setConsentStatus] = useState<CookieConsentStatus>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper function to set cookie
+  const setCookieConsent = useCallback((value: CookieConsentStatus) => {
+    // Skip cookie setting in development
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isDevelopment || value === null) return;
+
+    try {
+      const expires = new Date();
+      expires.setFullYear(expires.getFullYear() + 1); // 1 year expiry
+
+      let cookieValue = `cookie-consent=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+
+      // Add Secure flag if on HTTPS
+      if (window.location.protocol === 'https:') {
+        cookieValue += '; Secure';
+      }
+
+      document.cookie = cookieValue;
+      console.log('✅ Cookie consent set:', value);
+    } catch (error) {
+      console.error('❌ Error setting cookie:', error);
+    }
+  }, []);
+
   // Load consent status from cookies and localStorage
   useEffect(() => {
     const loadConsentStatus = () => {
@@ -22,10 +46,14 @@ export const useCookieConsent = () => {
 
           if (consentCookie) {
             const consentValue = consentCookie.split('=')[1] as CookieConsentStatus;
-            console.log('✅ Found consent cookie:', consentValue);
-            setConsentStatus(consentValue);
-            // Also store in localStorage as backup
-            localStorage.setItem('cookie-consent', consentValue);
+            if (consentValue && ['accepted', 'rejected', 'essential-only', null].includes(consentValue)) {
+              console.log('✅ Found consent cookie:', consentValue);
+              setConsentStatus(consentValue);
+              // Also store in localStorage as backup
+              if (consentValue !== null) {
+                localStorage.setItem('cookie-consent', consentValue);
+              }
+            }
           } else {
             console.log('⚠️ No consent cookie found, checking localStorage');
             // Fallback to localStorage if no cookie found
@@ -75,30 +103,6 @@ export const useCookieConsent = () => {
 
     loadConsentStatus();
   }, [setCookieConsent]);
-
-  // Helper function to set cookie
-  const setCookieConsent = useCallback((value: CookieConsentStatus) => {
-    // Skip cookie setting in development
-    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isDevelopment) return;
-
-    try {
-      const expires = new Date();
-      expires.setFullYear(expires.getFullYear() + 1); // 1 year expiry
-
-      let cookieValue = `cookie-consent=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
-
-      // Add Secure flag if on HTTPS
-      if (window.location.protocol === 'https:') {
-        cookieValue += '; Secure';
-      }
-
-      document.cookie = cookieValue;
-      console.log('✅ Cookie consent set:', value);
-    } catch (error) {
-      console.error('❌ Error setting cookie:', error);
-    }
-  }, []);
 
   // Accept all cookies
   const acceptAll = useCallback(() => {
