@@ -36,6 +36,7 @@ model CoffeeShop {
   favorites       Favorite[]
 }
 
+
 model Favorite {
   id            String     @id @default(cuid())
   userId        String     // User identifier (session ID or device ID)
