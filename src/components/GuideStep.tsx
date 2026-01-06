@@ -119,7 +119,7 @@ const steps: Step[] = [
     element: "#map-container",
     emoji: "",
     title: "Peta",
-    description: "Ne bray, disini ada peta sama ada marker coffeeshop, digeser geser aja siapatau dapet coffeeshop yang lo suka.",
+    description: "Disini ada peta sama ada marker coffeeshop, digeser geser aja siapatau dapet coffeeshop yang lo suka.",
     position: "center",
     brightenBg: true,
   },
@@ -145,7 +145,7 @@ const steps: Step[] = [
     id: "filter",
     element: "#filter-button",
     emoji: "",
-    title: "Pilih Fasilitas",
+    title: "Pilih Fasilitas (Coming Soon)",
     description: "Nyari yang ada WiFi kenceng? ato mau WFC? ato Mushola? diFilterin aja biar gampang.",
     position: "top",
     isCircle: true,
@@ -174,6 +174,15 @@ const steps: Step[] = [
     emoji: "",
     title: "Koleksi Favorit",
     description: "Kalo lo lagi suka sama tempat ngopi favorit lo, simpen, terus lu bisa liat disini.",
+    position: "top",
+    isCircle: true,
+  },
+  {
+    id: "noise-toggle",
+    element: "#noise-toggle-button",
+    emoji: "",
+    title: "Efek Noise",
+    description: "Gimana? keren kann? kalo berat di nonaktifin aja bro...",
     position: "top",
     isCircle: true,
   },
@@ -207,7 +216,7 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
     }
 
     // Auto toggle map controls
-    const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "help"];
+    const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "noise-toggle", "help"];
     const stepId = steps[currentStep].id;
 
     const isInternalControl = internalControlSteps.includes(stepId);

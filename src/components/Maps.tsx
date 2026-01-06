@@ -17,6 +17,7 @@ import MapControls from "./MapControls";
 import PageLoader from "./PageLoader";
 import FavoritesDrawer from "./FavoritesDrawer";
 import DetailDrawer from "./DetailDrawer";
+import Noise from "./Noise";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useCoffeeShops } from "@/hooks/useCoffeeShops";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -306,9 +307,10 @@ const Maps = () => {
   const markerClusterGroupRef = useRef<any>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isFavoritesDrawerOpen, setIsFavoritesDrawerOpen] = useState(false);
+  const [showNoise, setShowNoise] = useState(true);
 
   const handleStepChange = useCallback((stepId: string) => {
-    const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "help"];
+    const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "noise-toggle", "help"];
     if (internalControlSteps.includes(stepId)) {
       setControlsOpen(true);
     } else {
@@ -714,6 +716,13 @@ const Maps = () => {
             )}
           </MapContainer>
 
+          {/* Noise Overlay - Optimized for Performance */}
+          {showNoise && (
+            <div className="absolute inset-0 pointer-events-none z-10">
+              <Noise patternSize={100} patternRefreshInterval={10} patternAlpha={20} />
+            </div>
+          )}
+
           {/* Left Attribution (Vertical) */}
           <div className="absolute left-0 top-1/2 z-1000 -translate-y-1/2 pointer-events-none">
             <AnimatePresence mode="wait">
@@ -755,6 +764,8 @@ const Maps = () => {
             isLocating={isLocating}
             isOpen={controlsOpen}
             onOpenChange={setControlsOpen}
+            showNoise={showNoise}
+            onNoiseToggle={() => setShowNoise(!showNoise)}
           />
 
           {/* Location Error Toast */}

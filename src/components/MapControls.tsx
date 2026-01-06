@@ -16,6 +16,8 @@ interface MapControlsProps {
   isLocating?: boolean;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  showNoise?: boolean;
+  onNoiseToggle?: () => void;
 }
 
 interface ControlButtonProps {
@@ -48,7 +50,7 @@ const ControlButton = ({ id, icon, onClick, title, isActive = false, delay = 0 }
   </motion.button>
 );
 
-const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLocationClick, onBookmarkClick, onFilterClick, isLocating = false, isOpen: externalIsOpen, onOpenChange }: MapControlsProps) => {
+const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLocationClick, onBookmarkClick, onFilterClick, isLocating = false, isOpen: externalIsOpen, onOpenChange, showNoise = true, onNoiseToggle }: MapControlsProps) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
 
   // Use external control if provided, otherwise use internal state
@@ -118,6 +120,25 @@ const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLo
 
                   {/* Favorites */}
                   <ControlButton id="bookmark-button" icon={<Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />} onClick={onBookmarkClick} title="Favorites" delay={5} />
+
+                  {/* Noise Toggle */}
+                  <ControlButton
+                    id="noise-toggle-button"
+                    icon={
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 relative">
+                        <div className={`absolute inset-0 transition-opacity duration-300 ${showNoise ? "opacity-100" : "opacity-30"}`}>
+                          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+                            <circle cx="12" cy="12" r="2" fill="currentColor" />
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" strokeWidth="1.5" />
+                          </svg>
+                        </div>
+                      </div>
+                    }
+                    onClick={onNoiseToggle}
+                    title={showNoise ? "Hide noise overlay" : "Show noise overlay"}
+                    delay={6}
+                    isActive={showNoise}
+                  />
                 </motion.div>
               </motion.div>
             </PopoverContent>
