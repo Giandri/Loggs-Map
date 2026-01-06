@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, ChevronLeft } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Cookie, Shield, Check } from "lucide-react";
+import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 interface GuideStepProps {
   isOpen: boolean;
@@ -10,18 +11,86 @@ interface GuideStepProps {
   onStepChange?: (stepId: string) => void;
 }
 
+interface CookieConsentStepProps {
+  onAccept: () => void;
+  onReject: () => void;
+  onEssentialOnly: () => void;
+}
+
+const CookieConsentStep = ({ onAccept, onReject, onEssentialOnly }: CookieConsentStepProps) => {
+  const [showDetails, setShowDetails] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      {/* Cookie Options - Clean Grid Layout */}
+      <div className="grid grid-cols-1 gap-2">
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onAccept} className="group flex items-center justify-center p-3 bg-white/85 border border-black rounded-lg hover:bg-black hover:border-white transition-all">
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <p className="font-medium text-black hover:text-white text-sm">Terima Semua Cookies</p>
+            </div>
+          </div>
+        </motion.button>
+
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onReject} className="group flex items-center justify-center p-3 bg-black border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-black transition-all">
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <p className="font-medium text-white hover:text-black text-sm">Tolak Semua Cookies</p>
+            </div>
+          </div>
+        </motion.button>
+      </div>
+
+      {/* Minimal Details Section */}
+      <div className="text-center -top-3">
+        <button onClick={() => setShowDetails(!showDetails)} className="text-xs text-black hover:text-white font-medium transition-colors underline underline-offset-2">
+          {showDetails ? "Tutup penjelasan" : "Apa itu cookies?"}
+        </button>
+      </div>
+
+      {/* Collapsible Details */}
+      <AnimatePresence>
+        {showDetails && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="text-xs text-gray-600 space-y-2 pt-2 border-t border-gray-200">
+            <div className="flex items-start gap-2">
+              <div className="w-1 h-1 bg-green-400 rounded-full mt-2 shrink-0"></div>
+              <p>
+                <strong>Essential:</strong> Diperlukan untuk login dan keamanan aplikasi.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-1 h-1 bg-blue-400 rounded-full mt-2 shrink-0"></div>
+              <p>
+                <strong>Functional:</strong> Menyimpan favorit dan preferensi Anda.
+              </p>
+            </div>
+            <p className="text-gray-500 italic pt-1">Pilihan Anda bisa diubah kapan saja di pengaturan browser.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 interface Step {
   id: string;
   element?: string;
   emoji: string;
   title: string;
   description: string;
-  position?: "top" | "bottom" | "left" | "right" | "center";
-  brightenBg?: boolean; // Just lighten background, no spotlight
-  isCircle?: boolean; // Circular spotlight
+  position?: "top" | "bottom" | "left" | "right" | "center" | "bottom-left";
+  brightenBg?: boolean;
+  isCircle?: boolean;
 }
 
 const steps: Step[] = [
+  {
+    id: "cookie-consent",
+    emoji: "🍪",
+    title: "Selamat Datang di LoggsMaps!",
+    description: "Pilih preferensi cookies untuk pengalaman yang sesuai dengan kebutuhan Anda.",
+    position: "bottom-left",
+  },
   {
     id: "welcome",
     emoji: "",
@@ -128,6 +197,7 @@ const steps: Step[] = [
 
 const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const { acceptAll, acceptEssentialOnly, rejectAll } = useCookieConsent();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -141,12 +211,12 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
     const stepId = steps[currentStep].id;
 
     const isInternalControl = internalControlSteps.includes(stepId);
-    window.dispatchEvent(new CustomEvent('set-map-controls-open', { detail: isInternalControl }));
+    window.dispatchEvent(new CustomEvent("set-map-controls-open", { detail: isInternalControl }));
 
     return () => {
       // If closing guide, ensure controls also close
       if (currentStep === steps.length - 1) {
-        window.dispatchEvent(new CustomEvent('set-map-controls-open', { detail: false }));
+        window.dispatchEvent(new CustomEvent("set-map-controls-open", { detail: false }));
       }
     };
   }, [currentStep, isOpen, onStepChange]);
@@ -154,7 +224,7 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
   // Ensure controls close when guide is closed
   useEffect(() => {
     if (!isOpen) {
-      window.dispatchEvent(new CustomEvent('set-map-controls-open', { detail: false }));
+      window.dispatchEvent(new CustomEvent("set-map-controls-open", { detail: false }));
     }
   }, [isOpen]);
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
@@ -162,10 +232,32 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
   const [direction, setDirection] = useState(1);
 
   const calculateCardPosition = useCallback((rect: DOMRect | null, position: string) => {
-    // Use more accurate card dimensions - account for mobile screens
+    // Use more accurate card dimensions - account for mobile screens and special positioning
     const isMobile = window.innerWidth < 768;
-    const cardWidth = isMobile ? Math.min(320, window.innerWidth - 32) : 280;
-    const cardHeight = 260; // More accurate height based on actual content
+    const isCookieConsent = steps[currentStep]?.id === "cookie-consent";
+
+    // Responsive card sizing for cookie consent step
+    let cardWidth, cardHeight;
+    if (isCookieConsent) {
+      // Extra responsive sizing for cookie consent
+      if (window.innerWidth < 480) {
+        // Small mobile
+        cardWidth = Math.min(280, window.innerWidth - 24);
+        cardHeight = 280;
+      } else if (window.innerWidth < 768) {
+        // Mobile/tablet
+        cardWidth = Math.min(320, window.innerWidth - 32);
+        cardHeight = 300;
+      } else {
+        // Desktop
+        cardWidth = 340;
+        cardHeight = 320;
+      }
+    } else {
+      // Default sizing for other steps
+      cardWidth = isMobile ? Math.min(320, window.innerWidth - 32) : 280;
+      cardHeight = 260;
+    }
     const padding = isMobile ? 16 : 24;
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
@@ -174,7 +266,17 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
     let x = windowWidth / 2 - cardWidth / 2;
     let y = windowHeight / 2 - cardHeight / 2;
 
-    if (rect && position !== "center") {
+    if (position === "bottom-left") {
+      // Special positioning for cookie consent - always bottom left corner
+      // Responsive margins based on screen size
+      const responsiveMargin = window.innerWidth < 480 ? 8 : window.innerWidth < 768 ? 12 : 20;
+      x = responsiveMargin; // Left margin
+      y = windowHeight - cardHeight - responsiveMargin; // Bottom margin
+
+      // Ensure card doesn't go off-screen
+      x = Math.max(responsiveMargin, Math.min(x, windowWidth - cardWidth - responsiveMargin));
+      y = Math.max(responsiveMargin, Math.min(y, windowHeight - cardHeight - responsiveMargin));
+    } else if (rect && position !== "center") {
       switch (position) {
         case "bottom":
           x = rect.left + rect.width / 2 - cardWidth / 2;
@@ -236,7 +338,7 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
 
       if (el) {
         const style = window.getComputedStyle(el);
-        isActuallyVisible = style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        isActuallyVisible = style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
 
         if (isActuallyVisible) {
           const rect = el.getBoundingClientRect();
@@ -304,7 +406,33 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
     }
   }, [isOpen, currentStep, spotlightRect]); // spotlightRect ensures boost happens when element is found/measured
 
+  const handleCookieConsent = (action: "accept" | "essential" | "reject") => {
+    switch (action) {
+      case "accept":
+        acceptAll();
+        break;
+      case "essential":
+        acceptEssentialOnly();
+        break;
+      case "reject":
+        rejectAll();
+        break;
+    }
+    // Auto proceed to next step
+    if (currentStep < steps.length - 1) {
+      setDirection(1);
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
   const handleNext = () => {
+    // Prevent proceeding if still on cookie consent step
+    if (steps[currentStep].id === "cookie-consent") {
+      return; // User must choose cookie option first
+    }
+
     if (currentStep < steps.length - 1) {
       setDirection(1);
       setCurrentStep(currentStep + 1);
@@ -345,35 +473,32 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
         <div className="fixed inset-0 z-9999 pointer-events-auto">
           {/* Overlay - and block interaction */}
           <AnimatePresence>
-            {(isBrightenBg || !spotlightRect) && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className={`absolute inset-0 ${isBrightenBg ? "bg-black/20" : "bg-black/60"} pointer-events-auto`}
-              />
-            )}
+            {(isBrightenBg || !spotlightRect) && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 ${isBrightenBg ? "bg-black/20" : "bg-black/60"} pointer-events-auto`} />}
           </AnimatePresence>
 
           {/* Spotlight - only show when not brightenBg */}
           {spotlightRect && !isBrightenBg && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={step.isCircle ? {
-                opacity: 1,
-                left: spotlightRect.left + spotlightRect.width / 2 - (Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24)) / 2,
-                top: spotlightRect.top + spotlightRect.height / 2 - (Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24)) / 2,
-                width: Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24),
-                height: Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24),
-                borderRadius: "50%",
-              } : {
-                opacity: 1,
-                left: spotlightRect.left - (window.innerWidth < 768 ? 4 : 6),
-                top: spotlightRect.top - (window.innerWidth < 768 ? 4 : 6),
-                width: spotlightRect.width + (window.innerWidth < 768 ? 8 : 12),
-                height: spotlightRect.height + (window.innerWidth < 768 ? 8 : 12),
-                borderRadius: window.innerWidth < 768 ? "8px" : "12px",
-              }}
+              animate={
+                step.isCircle
+                  ? {
+                      opacity: 1,
+                      left: spotlightRect.left + spotlightRect.width / 2 - (Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24)) / 2,
+                      top: spotlightRect.top + spotlightRect.height / 2 - (Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24)) / 2,
+                      width: Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24),
+                      height: Math.max(spotlightRect.width, spotlightRect.height) + (window.innerWidth < 768 ? 16 : 24),
+                      borderRadius: "50%",
+                    }
+                  : {
+                      opacity: 1,
+                      left: spotlightRect.left - (window.innerWidth < 768 ? 4 : 6),
+                      top: spotlightRect.top - (window.innerWidth < 768 ? 4 : 6),
+                      width: spotlightRect.width + (window.innerWidth < 768 ? 8 : 12),
+                      height: spotlightRect.height + (window.innerWidth < 768 ? 8 : 12),
+                      borderRadius: window.innerWidth < 768 ? "8px" : "12px",
+                    }
+              }
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
               className="absolute pointer-events-auto"
               style={{
@@ -395,9 +520,17 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             whileHover={{ scale: window.innerWidth >= 768 ? 1.02 : 1 }}
-            className={`absolute top-0 left-0 bg-white/40 backdrop-blur-sm border border-white/60 rounded-2xl p-4 md:p-5 shadow-xl pointer-events-auto ${window.innerWidth < 768 ? 'w-[calc(100vw-32px)] max-w-[320px]' : 'w-[280px]'
-              }`}
-          >
+            className={`absolute top-0 left-0 bg-white/40 backdrop-blur-sm border border-white/60 rounded-2xl shadow-xl pointer-events-auto ${
+              steps[currentStep]?.id === "cookie-consent"
+                ? window.innerWidth < 480
+                  ? "w-[calc(100vw-24px)] max-w-[280px] p-3"
+                  : window.innerWidth < 768
+                  ? "w-[calc(100vw-32px)] max-w-[320px] p-4"
+                  : "w-[340px] p-5"
+                : window.innerWidth < 768
+                ? "w-[calc(100vw-32px)] max-w-[320px] p-4 md:p-5"
+                : "w-[280px] p-4 md:p-5"
+            }`}>
             {/* Close */}
             <motion.button whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.2)" }} whileTap={{ scale: 0.9 }} onClick={handleComplete} className="absolute top-3 right-3 p-1.5 rounded-full transition-colors">
               <X className="w-4 h-4 text-white" />
@@ -414,8 +547,15 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
                 {/* Title */}
                 <h3 className="text-base font-semibold text-white text-center mb-1">{step.title}</h3>
 
-                {/* Description */}
-                <p className="text-sm text-white/80 text-center mb-4">{step.description}</p>
+                {/* Description or Cookie Consent */}
+                {step.id === "cookie-consent" ? (
+                  <div className="mb-4">
+                    <p className="text-sm text-white/80 text-center mb-6">{step.description}</p>
+                    <CookieConsentStep onAccept={() => handleCookieConsent("accept")} onReject={() => handleCookieConsent("reject")} onEssentialOnly={() => handleCookieConsent("essential")} />
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/80 text-center mb-4">{step.description}</p>
+                )}
               </motion.div>
             </AnimatePresence>
 
@@ -435,27 +575,29 @@ const GuideStep: React.FC<GuideStepProps> = ({ isOpen, onClose, onStepChange }) 
               ))}
             </div>
 
-            {/* Buttons */}
-            <div className="flex gap-2">
-              {!isFirstStep && (
+            {/* Buttons - Hide for cookie consent step */}
+            {step.id !== "cookie-consent" && (
+              <div className="flex gap-2">
+                {!isFirstStep && (
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handlePrev}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-black text-white text-sm font-medium flex items-center justify-center gap-1 hover:bg-black/80 transition-colors">
+                    <ChevronLeft className="w-4 h-4" />
+                    Kembali
+                  </motion.button>
+                )}
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={handlePrev}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-black text-white text-sm font-medium flex items-center justify-center gap-1 hover:bg-black/80 transition-colors">
-                  <ChevronLeft className="w-4 h-4" />
-                  Kembali
+                  onClick={handleNext}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${isLastStep ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/80"}`}>
+                  {isLastStep ? "Mulai" : "Lanjut"}
+                  {!isLastStep && <ChevronRight className="w-4 h-4" />}
                 </motion.button>
-              )}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={handleNext}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${isLastStep ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/80"}`}>
-                {isLastStep ? "Mulai" : "Lanjut"}
-                {!isLastStep && <ChevronRight className="w-4 h-4" />}
-              </motion.button>
-            </div>
+              </div>
+            )}
 
             {/* Skip text */}
             {!isLastStep && (

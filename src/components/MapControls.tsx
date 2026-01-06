@@ -121,8 +121,8 @@ const MapControls = ({
                     isActive={isLocating}
                   />
 
-                  {/* Bookmarks */}
-                  <ControlButton id="bookmark-button" icon={<Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />} onClick={onBookmarkClick} title="Favorit" delay={5} />
+                  {/* Favorites */}
+                  <ControlButton id="bookmark-button" icon={<Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />} onClick={onBookmarkClick} title="Favorites" delay={5} />
                 </motion.div>
               </motion.div>
             </PopoverContent>

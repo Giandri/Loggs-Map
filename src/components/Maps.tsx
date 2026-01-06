@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl, LayerGroup, Circle, Polyline } from "react-leaflet";
-import { MapPin, Navigation, Clock, Wifi, ChevronRight, ChevronLeft, MessageCircle, Locate, Coffee, Percent, Signal, Home, Car, CreditCard, Instagram, ExternalLink } from "lucide-react";
+import { MapPin, Navigation, Clock, Wifi, ChevronRight, ChevronLeft, MessageCircle, Locate, Coffee, Percent, Signal, Home, Car, CreditCard, Instagram, ExternalLink, Bookmark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -12,8 +12,12 @@ import Footer from "./Footer";
 import GuideStep from "./GuideStep";
 import MapControls from "./MapControls";
 import PageLoader from "./PageLoader";
+import FavoritesDrawer from "./FavoritesDrawer";
+import DetailDrawer from "./DetailDrawer";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useCoffeeShops } from "@/hooks/useCoffeeShops";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 interface CoffeeShop {
   id: string;
@@ -302,7 +306,6 @@ const Maps = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeLayer, setActiveLayer] = useState<"satellite" | "street">("satellite");
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showGuide, setShowGuide] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [userLocationName, setUserLocationName] = useState<string | null>(null);
@@ -320,6 +323,7 @@ const Maps = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const pinchStartDistanceRef = useRef<number | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [isFavoritesDrawerOpen, setIsFavoritesDrawerOpen] = useState(false);
 
   const handleStepChange = useCallback((stepId: string) => {
     const internalControlSteps = ["layer-switcher", "filter", "recenter", "location", "bookmark", "help"];
@@ -335,6 +339,12 @@ const Maps = () => {
 
   // Use custom hook for real-time data (moved up to be available for callbacks)
   const { coffeeShops, loading, refreshCoffeeShops } = useCoffeeShops();
+
+  // Use favorites hook
+  const { favorites, toggleFavorite, isFavorited, loading: favoritesLoading } = useFavorites();
+
+  // Cookie consent hook
+  const { canUseEssentialCookies, consentStatus } = useCookieConsent();
 
   // Handle map ready
   const handleMapReady = useCallback((map: L.Map) => {
@@ -522,13 +532,16 @@ const Maps = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Show guide on every page load/refresh (after intro)
+  // Show guide on every page load/refresh (after intro) - only if cookie consent not given
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowGuide(true);
-    }, 2500); // Delay guide to show after intro
-    return () => clearTimeout(timer);
-  }, []);
+    // Only show guide if user hasn't made a cookie consent choice yet
+    if (consentStatus === null) {
+      const timer = setTimeout(() => {
+        setShowGuide(true);
+      }, 2500); // Delay guide to show after intro
+      return () => clearTimeout(timer);
+    }
+  }, [consentStatus]);
 
   // Polling for real-time updates (every 30 seconds)
   React.useEffect(() => {
@@ -545,7 +558,6 @@ const Maps = () => {
 
   const handleShopSelect = (shop: CoffeeShop) => {
     setSelectedShop(shop);
-    setCurrentImageIndex(0); // Reset to first image
     setIsDrawerOpen(true);
   };
 
@@ -581,18 +593,6 @@ const Maps = () => {
     pinchStartDistanceRef.current = null;
     setIsPinchingNearbyPanel(false);
     setNearbyPanelScale(1);
-  };
-
-  const nextImage = () => {
-    if (selectedShop?.photos && selectedShop.photos.length > 0) {
-      setCurrentImageIndex((prev) => (prev === selectedShop.photos.length - 1 ? 0 : prev + 1));
-    }
-  };
-
-  const prevImage = () => {
-    if (selectedShop?.photos && selectedShop.photos.length > 0) {
-      setCurrentImageIndex((prev) => (prev === 0 ? selectedShop.photos.length - 1 : prev - 1));
-    }
   };
 
   return (
@@ -686,6 +686,7 @@ const Maps = () => {
             onGuideOpen={() => setShowGuide(true)}
             onRecenter={handleRecenter}
             onLocationClick={handleGetUserLocation}
+            onBookmarkClick={() => setIsFavoritesDrawerOpen(true)}
             isLocating={isLocating}
             isOpen={controlsOpen}
             onOpenChange={setControlsOpen}
@@ -801,250 +802,30 @@ const Maps = () => {
         <GuideStep isOpen={showGuide} onClose={() => setShowGuide(false)} onStepChange={handleStepChange} />
 
         {/* Coffee Shop Detail Drawer */}
-        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-          <DrawerContent>
-            <div
-              className="mx-auto w-full max-w-md z-1002 max-h-[85vh] overflow-y-auto md:max-h-[80vh] md:overflow-y-auto"
-              style={{
-                scrollbarWidth: "thin",
-                scrollbarColor: "transparent transparent",
-              }}>
-              <DrawerHeader>
-                <DrawerTitle className="text-xl text-white">{selectedShop?.name}</DrawerTitle>
-                <DrawerDescription className="flex items-center text-white text-[10px] gap-3">
-                  <MapPin className="w-6 h-6" />
-                  {selectedShop?.address}
-                </DrawerDescription>
-              </DrawerHeader>
+        <DetailDrawer
+          isOpen={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
+          selectedShop={selectedShop}
+          onGetRoute={getRoute}
+          isLoadingRoute={isLoadingRoute}
+          onToggleFavorite={toggleFavorite}
+          isFavorited={isFavorited}
+          canUseEssentialCookies={canUseEssentialCookies}
+          favoritesLoading={favoritesLoading}
+        />
 
-              {/* Image Carousel */}
-              <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden mb-4">
-                {/* Use photos if available, otherwise use dummy images */}
-                {(() => {
-                  const images =
-                    selectedShop?.photos && selectedShop.photos.length > 0
-                      ? selectedShop.photos
-                      : ["/api/placeholder/400/300?text=Cafe+Interior", "/api/placeholder/400/300?text=Coffee+Menu", "/api/placeholder/400/300?text=Outdoor+Seating"];
-
-                  return (
-                    <>
-                      <img
-                        src={images[currentImageIndex]}
-                        alt={`${selectedShop?.name} - Image ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          // Fallback if image fails to load
-                          const target = e.target as HTMLImageElement;
-                          target.src = "/api/placeholder/400/300?text=Image+Not+Found";
-                        }}
-                      />
-
-                      {/* Navigation Buttons */}
-                      {images.length > 1 && (
-                        <>
-                          <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors">
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors">
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-
-                      {/* Image Indicators */}
-                      {images.length > 1 && (
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                          {images.map((_, index) => (
-                            <button key={index} onClick={() => setCurrentImageIndex(index)} className={`w-2 h-2 rounded-full transition-colors ${index === currentImageIndex ? "bg-white" : "bg-white/50"}`} />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Image Counter */}
-                      {images.length > 1 && (
-                        <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                          {currentImageIndex + 1} / {images.length}
-                        </div>
-                      )}
-
-                      {/* Show indicator if using dummy images */}
-                      {(!selectedShop?.photos || selectedShop.photos.length === 0) && <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs">Preview Images</div>}
-                    </>
-                  );
-                })()}
-              </div>
-
-              <div className="p-4 pb-0 space-y-4">
-                {/* WFC Card */}
-                {selectedShop?.wfc && (
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-emerald-500 rounded-lg flex items-center justify-center shadow-md shadow-emerald-500/30">
-                        <Wifi className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-emerald-700 font-semibold text-sm">Great for Working!</p>
-                        <p className="text-emerald-600/70 text-xs">Good connectivity</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-emerald-600">Speed</p>
-                        <p className="text-sm font-bold text-emerald-700">{selectedShop?.connectionSpeed || "~30 Mbps"}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Hours */}
-                  <div className="flex items-start gap-2">
-                    <Clock className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">Hours</p>
-                      <p className="text-xs font-medium text-white">
-                        {selectedShop?.operatingDays || "Everyday"}: {selectedShop?.openTime || "08:00"} - {selectedShop?.closeTime || "22:00"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-start gap-2">
-                    <Coffee className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">Price</p>
-                      <p className="text-xs font-medium text-white">{selectedShop?.priceRange || "Start From 20K"}</p>
-                    </div>
-                  </div>
-
-                  {/* Service/Tax */}
-                  <div className="flex items-start gap-2">
-                    <Percent className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">Tax</p>
-                      <p className="text-xs font-medium text-white">{selectedShop?.serviceTax || "No Tax"}</p>
-                    </div>
-                  </div>
-
-                  {/* Connection */}
-                  <div className="flex items-start gap-2">
-                    <Signal className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">WiFi</p>
-                      <p className="text-xs font-medium text-white">{selectedShop?.connectionSpeed || (selectedShop?.wfc ? "Available" : "N/A")}</p>
-                    </div>
-                  </div>
-
-                  {/* Mushola */}
-                  <div className="flex items-start gap-2">
-                    <Home className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">Mushola</p>
-                      <p className="text-xs font-medium text-white">{selectedShop?.mushola ? "Available" : "N/A"}</p>
-                    </div>
-                  </div>
-
-                  {/* Parking */}
-                  <div className="flex items-start gap-2">
-                    <Car className="w-4 h-4 text-white/60 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wide">Parking</p>
-                      <div className="flex gap-1.5">
-                        {selectedShop?.parking && selectedShop.parking.length > 0 ? (
-                          selectedShop.parking.map((type) => (
-                            <span key={type} className="text-xs text-white">
-                              {type === "motorcycle" && "🏍️"}
-                              {type === "car" && "🚗"}
-                              {type === "bicycle" && "🚲"}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-white/50">N/A</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment Methods */}
-                <div className="flex items-start gap-2">
-                  <CreditCard className="w-4 h-4 text-white/60 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] text-white/60 uppercase tracking-wide mb-1">Payment</p>
-                    <div className="flex gap-2">
-                      {selectedShop?.paymentMethods && selectedShop.paymentMethods.length > 0 ? (
-                        selectedShop.paymentMethods
-                          .filter((m) => m === "cash" || m === "cashless")
-                          .map((method) => (
-                            <span key={method} className="flex items-center gap-1 text-xs text-white">
-                              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
-                              {method === "cash" ? "Cash" : "Cashless"}
-                            </span>
-                          ))
-                      ) : (
-                        <span className="text-xs text-white/50">Cash Only</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Facilities */}
-                {selectedShop?.facilities && selectedShop.facilities.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedShop.facilities.map((facility: string, index: number) => (
-                      <span key={index} className="text-[10px] text-white bg-white/20 px-2 py-0.5 rounded-full capitalize">
-                        {facility.replace(/-/g, " ")}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Social Links */}
-                <div className="flex gap-2">
-                  {selectedShop?.instagram && (
-                    <a href={selectedShop.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-white bg-pink-500/80 px-3 py-1.5 rounded-full hover:bg-pink-500 transition">
-                      <Instagram className="w-3.5 h-3.5" />
-                      Instagram
-                    </a>
-                  )}
-                  <a
-                    href={`https://www.google.com/maps?q=${selectedShop?.lat},${selectedShop?.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-white bg-white/20 px-3 py-1.5 rounded-full hover:bg-white/30 transition">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Google Maps
-                  </a>
-                </div>
-              </div>
-
-              <DrawerFooter>
-                <div className="grid grid-cols-2 gap-3">
-                  <a
-                    href={`https://wa.me/${selectedShop?.whatsapp?.replace(/[^0-9]/g, "")}?text=Halo, saya ingin pesan`}
-                    className="bg-green-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                    <MessageCircle className="w-5 h-5" />
-                    WhatsApp
-                  </a>
-                  <button
-                    onClick={() => {
-                      if (selectedShop) {
-                        getRoute({ lat: selectedShop.lat, lng: selectedShop.lng });
-                        setIsDrawerOpen(false);
-                      }
-                    }}
-                    disabled={isLoadingRoute}
-                    className="bg-black text-white py-3 px-4 rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                    {isLoadingRoute ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Navigation className="w-5 h-5" />}
-                    {isLoadingRoute ? "Memuat..." : "Rute"}
-                  </button>
-                </div>
-                <DrawerClose asChild>
-                  <button className="w-full text-gray-500 py-2 text-sm hover:text-gray-700 transition-colors">Tutup</button>
-                </DrawerClose>
-              </DrawerFooter>
-            </div>
-          </DrawerContent>
-        </Drawer>
+        {/* Favorites Drawer */}
+        <FavoritesDrawer
+          isOpen={isFavoritesDrawerOpen}
+          onOpenChange={setIsFavoritesDrawerOpen}
+          favorites={coffeeShops.filter((shop) => favorites.includes(shop.id))}
+          onShopSelect={(shop) => {
+            setSelectedShop(shop);
+            setIsDrawerOpen(true);
+            setIsFavoritesDrawerOpen(false);
+          }}
+          onRemoveFavorite={toggleFavorite}
+        />
       </div>
     </>
   );
