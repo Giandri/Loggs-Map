@@ -682,73 +682,29 @@ const Maps = () => {
 
         const videoEmbed = getVideoEmbed(shop);
 
-        if (isMobile) {
-          // Mobile: Simple popup + click to open drawer
-          marker.bindPopup(
-            `
-            <div class="popup-content text-center max-w-xs">
-              <h3 class="font-semibold text-gray-900 text-sm mb-1">${shop.name}</h3>
-              <button class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors mt-1">
-                Tap for details
-              </button>
-            </div>
-            `,
-            {
-              maxWidth: 280,
-              minWidth: 220,
-              className: "custom-popup",
-              closeButton: false,
-              autoPan: true,
-              keepInView: true,
-            }
-          );
+        marker.bindPopup(
+          `
+          <div class="popup-content text-center max-w-xs">
+            <h3 class="font-semibold text-gray-900 text-sm mb-2">${shop.name}</h3>
 
-          marker.on("click", () => {
-            setMobileDrawerShop(shop);
-            marker.closePopup();
-          });
-        } else {
-          // Desktop: Tooltip for hover, popup for click
-          marker.bindTooltip(
-            `
-            <div class="tooltip-content">
-              <h4 class="font-semibold text-gray-900 text-sm">${shop.name}</h4>
-              <p class="text-xs text-gray-600 mt-1">${shop.address}</p>
-              ${shop.wfc ? '<p class="text-xs text-green-600 mt-1">🟢 Work From Cafe</p>' : ""}
-            </div>
-            `,
-            {
-              permanent: false,
-              direction: "top",
-              offset: [0, -10],
-              className: "custom-tooltip",
-            }
-          );
+            ${videoEmbed}
+          </div>
+        `,
+          {
+            maxWidth: 320,
+            minWidth: 280,
+            className: "custom-popup",
+          }
+        );
 
-          marker.bindPopup(
-            `
-            <div class="popup-content text-center max-w-xs">
-              <h3 class="font-semibold text-gray-900 text-sm mb-2">${shop.name}</h3>
-              <p class="text-xs text-gray-600 mb-3">${shop.address}</p>
-              ${videoEmbed}
-            </div>
-            `,
-            {
-              maxWidth: 320,
-              minWidth: 280,
-              className: "custom-popup",
-            }
-          );
-
-          marker.on("click", () => handleShopSelect(shop));
-          marker.on("mouseover", () => marker.openTooltip());
-          marker.on("mouseout", () => marker.closeTooltip());
-        }
+        marker.on("click", () => handleShopSelect(shop));
+        marker.on("mouseover", () => marker.openPopup());
+        marker.on("mouseout", () => marker.closePopup());
 
         markerClusterGroupRef.current?.addLayer(marker);
       });
     }
-  }, [filteredShops, handleShopSelect, isMobile]);
+  }, [filteredShops, handleShopSelect]);
 
   const getTouchDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return null;
@@ -797,7 +753,23 @@ const Maps = () => {
           <Footer />
 
           {/* Leaflet Map */}
-          <MapContainer id="map-container" center={mapCenter} zoom={14} className="h-full w-full z-0" zoomControl={false} attributionControl={false} maxZoom={23}>
+          <MapContainer
+            id="map-container"
+            center={mapCenter}
+            zoom={14}
+            className="h-full w-full z-0 select-none 
+    touch-none 
+    touch-manipulation
+    [user-select:none]
+    [-webkit-user-select:none] 
+    [-webkit-touch-callout:none]
+    [-webkit-tap-highlight-color:transparent]
+    [-webkit-touch-callout:none]
+    [-moz-user-select:none]
+    [-ms-user-select:none]"
+            zoomControl={false}
+            attributionControl={false}
+            maxZoom={23}>
             <MapController userLocation={userLocation} mapCenter={mapCenter} onMapReady={handleMapReady} />
 
             {activeLayer === "satellite" ? (
@@ -1034,76 +1006,12 @@ const Maps = () => {
           }}
           onRemoveFavorite={toggleFavorite}
         />
-
-        {/* Mobile Coffee Shop Drawer */}
-        <Drawer open={!!mobileDrawerShop} onOpenChange={(open) => !open && setMobileDrawerShop(null)}>
-          <DrawerContent className="max-h-[80vh]">
-            <DrawerHeader>
-              <DrawerTitle>{mobileDrawerShop?.name}</DrawerTitle>
-              <DrawerDescription>{mobileDrawerShop?.address}</DrawerDescription>
-            </DrawerHeader>
-
-            {mobileDrawerShop && (
-              <div className="px-4 pb-4">
-                {/* Video Section */}
-                {mobileDrawerShop.videoUrl && mobileDrawerShop.videoPlatform && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium mb-2">Video</h4>
-                    <div className="video-placeholder bg-gray-100 rounded-lg p-4 text-center border border-gray-200">
-                      <div className="text-sm text-gray-600 mb-3 flex items-center justify-center gap-2">
-                        📹 <span>Video Available</span>
-                      </div>
-                      <button onClick={() => window.open(mobileDrawerShop.videoUrl!, "_blank")} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium">
-                        Watch Video
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Details */}
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Details</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Status:</span>
-                        <p className={mobileDrawerShop.wfc ? "text-green-600" : "text-gray-600"}>{mobileDrawerShop.wfc ? "Work From Cafe" : "Regular Cafe"}</p>
-                      </div>
-                      {mobileDrawerShop.priceRange && (
-                        <div>
-                          <span className="text-gray-500">Price:</span>
-                          <p className="text-gray-900">{mobileDrawerShop.priceRange}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setSelectedShop(mobileDrawerShop);
-                        setIsDrawerOpen(true);
-                        setMobileDrawerShop(null);
-                      }}
-                      className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors">
-                      View Full Details
-                    </button>
-                    <button onClick={() => setMobileDrawerShop(null)} className="px-4 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </DrawerContent>
-        </Drawer>
       </div>
     </>
   );
 };
 
-// Custom CSS for popup and tooltip styling
+// Custom CSS for popup styling
 const popupStyles = `
   <style>
     .custom-popup .leaflet-popup-content-wrapper {
@@ -1147,40 +1055,6 @@ const popupStyles = `
       border-radius: 8px;
       border: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    /* Tooltip styling */
-    .custom-tooltip {
-      background-color: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      padding: 0;
-    }
-
-    .custom-tooltip .leaflet-popup-tip {
-      background-color: white;
-      border-left: 1px solid #e5e7eb;
-      border-top: 1px solid #e5e7eb;
-    }
-
-    .tooltip-content {
-      padding: 12px;
-      max-width: 200px;
-    }
-
-    .tooltip-content h4 {
-      margin: 0 0 4px 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #111827;
-    }
-
-    .tooltip-content p {
-      margin: 0;
-      font-size: 12px;
-      color: #6b7280;
-      line-height: 1.4;
     }
   </style>
 `;
