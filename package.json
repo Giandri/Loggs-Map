@@ -31,6 +31,7 @@
     "framer-motion": "^12.23.26",
     "ldrs": "^1.1.9",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.562.0",
     "mathjs": "^14.9.1",
     "next": "16.1.1",

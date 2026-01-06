@@ -7,6 +7,9 @@ import { MapPin, Navigation, Clock, Wifi, ChevronRight, ChevronLeft, MessageCirc
 import { motion, AnimatePresence } from "framer-motion";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import GuideStep from "./GuideStep";
@@ -279,28 +282,6 @@ const createCustomIcon = (logoUrl: string | undefined, isSelected: boolean) => {
   });
 };
 
-const CoffeeMarker = ({ shop, isSelected, onClick }: { shop: CoffeeShop; isSelected: boolean; onClick: () => void }) => {
-  const icon = React.useMemo(() => createCustomIcon(shop.logo, isSelected), [shop.logo, isSelected]);
-
-  return (
-    <Marker
-      position={[shop.lat, shop.lng]}
-      icon={icon}
-      eventHandlers={{
-        click: onClick,
-        mouseover: (e) => e.target.openPopup(),
-        mouseout: (e) => e.target.closePopup(),
-      }}>
-      <Popup>
-        <div className="text-center">
-          <h3 className="font-semibold text-gray-900">{shop.name}</h3>
-          <p className="text-sm text-gray-500">{shop.address}</p>
-        </div>
-      </Popup>
-    </Marker>
-  );
-};
-
 const Maps = () => {
   const [selectedShop, setSelectedShop] = useState<CoffeeShop | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -322,6 +303,7 @@ const Maps = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const pinchStartDistanceRef = useRef<number | null>(null);
+  const markerClusterGroupRef = useRef<any>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isFavoritesDrawerOpen, setIsFavoritesDrawerOpen] = useState(false);
 
@@ -349,6 +331,51 @@ const Maps = () => {
   // Handle map ready
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
+
+    // Initialize marker cluster group
+    if (!markerClusterGroupRef.current) {
+      markerClusterGroupRef.current = (L as any).markerClusterGroup({
+        chunkedLoading: true,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        maxClusterRadius: 50,
+        iconCreateFunction: (cluster: any) => {
+          const count = cluster.getChildCount();
+
+          return L.divIcon({
+            html: `
+              <div style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                background: white;
+                border: 2px solid white;
+                border-radius: 50%;
+                color: black;
+                font-weight: bold;
+                font-size: 11px;
+                font-family: 'Courier New', monospace;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                transition: transform 0.2s ease;
+                cursor: pointer;
+              "
+              onmouseover="this.style.transform='scale(1.1)'"
+              onmouseout="this.style.transform='scale(1)'"
+              >
+                <span>${count}</span>
+              </div>
+            `,
+            className: "custom-cluster",
+            iconSize: L.point(32, 32, true),
+          });
+        },
+      });
+
+      map.addLayer(markerClusterGroupRef.current);
+    }
   }, []);
 
   // Reverse geocoding - get location name from coordinates
@@ -561,6 +588,34 @@ const Maps = () => {
     setIsDrawerOpen(true);
   };
 
+  // Manage marker cluster group
+  React.useEffect(() => {
+    if (markerClusterGroupRef.current && filteredShops.length > 0) {
+      // Clear existing markers
+      markerClusterGroupRef.current.clearLayers();
+
+      // Add new markers
+      filteredShops.forEach((shop) => {
+        const marker = L.marker([shop.lat, shop.lng], {
+          icon: createCustomIcon(shop.logo, false),
+        });
+
+        marker.bindPopup(`
+          <div class="text-center">
+            <h3 class="font-semibold text-gray-900">${shop.name}</h3>
+            <p class="text-sm text-gray-500">${shop.address}</p>
+          </div>
+        `);
+
+        marker.on("click", () => handleShopSelect(shop));
+        marker.on("mouseover", () => marker.openPopup());
+        marker.on("mouseout", () => marker.closePopup());
+
+        markerClusterGroupRef.current?.addLayer(marker);
+      });
+    }
+  }, [filteredShops, handleShopSelect]);
+
   const getTouchDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return null;
     const [t1, t2] = [touches[0], touches[1]];
@@ -624,10 +679,6 @@ const Maps = () => {
             ) : (
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             )}
-
-            {filteredShops.map((shop) => (
-              <CoffeeMarker key={shop.id} shop={shop} isSelected={selectedShop?.id === shop.id} onClick={() => handleShopSelect(shop)} />
-            ))}
 
             {/* User Location Marker */}
             {userLocation && (

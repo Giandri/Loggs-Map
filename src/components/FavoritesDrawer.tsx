@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { MapPin, Bookmark, Coffee, Wifi, ChevronRight } from "lucide-react";
+import { MapPin, Bookmark, Coffee, Wifi, ChevronRight, Trash2 } from "lucide-react";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
 interface CoffeeShop {
@@ -105,7 +105,7 @@ const FavoritesDrawer = ({ isOpen, onOpenChange, favorites, onShopSelect, onRemo
                             onRemoveFavorite(shop.id);
                           }}
                           className="w-8 h-8 rounded-full bg-white/30 hover:bg-red-500/30 flex items-center justify-center transition-colors">
-                          <Bookmark className="w-4 h-4 text-white fill-current" />
+                          <Trash2 className="w-4 h-4 text-white fill-current" />
                         </motion.button>
                         <ChevronRight className="w-4 h-4 text-white/50" />
                       </div>
