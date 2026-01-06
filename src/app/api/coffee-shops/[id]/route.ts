@@ -62,6 +62,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         mushola: body.mushola,
         parking: body.parking,
         paymentMethods: body.paymentMethods,
+        videoUrl: body.videoUrl,
+        videoPlatform: body.videoPlatform,
       },
     });
 

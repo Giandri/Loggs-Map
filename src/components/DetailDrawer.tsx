@@ -26,6 +26,8 @@ interface CoffeeShop {
   mushola?: boolean;
   parking?: string[];
   paymentMethods?: string[];
+  videoUrl?: string;
+  videoPlatform?: string;
 }
 
 interface DetailDrawerProps {

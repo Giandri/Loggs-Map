@@ -29,6 +29,8 @@ model CoffeeShop {
   mushola         Boolean  @default(false)
   parking         Json?    // JSON array ["motorcycle", "car"]
   paymentMethods  Json?    // JSON array ["cash", "qris", "debit"]
+  videoUrl        String?  // Video URL for popup embed
+  videoPlatform   String?  // Video platform: "youtube", "vimeo", "instagram"
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

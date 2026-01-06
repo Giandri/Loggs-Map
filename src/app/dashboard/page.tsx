@@ -40,7 +40,7 @@ import {
 import PillNav from "@/components/ui/pill-nav";
 import { useCoffeeShops } from "@/hooks/useCoffeeShops";
 import { useRouter } from "next/navigation";
-import { LogOut, EyeOff, AlertCircle } from "lucide-react";
+import { LogOut, EyeOff, AlertCircle, Video, CheckCircle } from "lucide-react";
 
 // Types
 interface PropertyData {
@@ -61,6 +61,38 @@ declare global {
     L: any;
   }
 }
+
+// Function to convert video URL to embed URL
+const getVideoEmbedUrl = (url: string, platform: string) => {
+  if (!url || !platform) return null;
+
+  try {
+    const urlObj = new URL(url);
+
+    if (platform === "youtube") {
+      const videoId = urlObj.searchParams.get("v") || urlObj.pathname.split("/").pop()?.split("?")[0];
+      return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1` : null;
+    }
+
+    if (platform === "vimeo") {
+      const videoId = urlObj.pathname.split("/").pop();
+      return videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1&muted=1` : null;
+    }
+
+    if (platform === "instagram") {
+      // Instagram embed URLs are more complex, but we can try to extract the post ID
+      const postId = urlObj.pathname
+        .split("/")
+        .filter((p) => p)
+        .pop();
+      return postId ? `https://www.instagram.com/p/${postId}/embed/` : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+};
 
 // Custom marker generator for dashboard
 const createCustomMarkerIcon = (shop: any, isSelected: boolean) => {
@@ -123,6 +155,8 @@ interface CoffeeShop {
   mushola?: boolean;
   parking?: string[];
   paymentMethods?: string[];
+  videoUrl?: string;
+  videoPlatform?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -148,6 +182,8 @@ interface SimpleCoffeeShop {
   mushola?: boolean;
   parking?: string[];
   paymentMethods?: string[];
+  videoUrl?: string;
+  videoPlatform?: string;
 }
 
 const RealEstateDashboard: React.FC = () => {
@@ -239,6 +275,8 @@ const RealEstateDashboard: React.FC = () => {
     parking: [] as string[],
     paymentMethods: [] as string[],
     facilities: [] as string[],
+    videoUrl: "",
+    videoPlatform: "",
     lat: 0,
     lng: 0,
   });
@@ -269,6 +307,8 @@ const RealEstateDashboard: React.FC = () => {
         parking: selectedCoffeeShop.parking || [],
         paymentMethods: selectedCoffeeShop.paymentMethods || [],
         facilities: selectedCoffeeShop.facilities || [],
+        videoUrl: selectedCoffeeShop.videoUrl || "",
+        videoPlatform: selectedCoffeeShop.videoPlatform || "",
         lat: selectedCoffeeShop.lat || 0,
         lng: selectedCoffeeShop.lng || 0,
       });
@@ -532,6 +572,44 @@ const RealEstateDashboard: React.FC = () => {
     }
   };
 
+  // Handle quick video update from sidebar
+  const handleQuickVideoUpdate = async (coffeeShopId: string, field: "videoUrl" | "videoPlatform", value: string) => {
+    try {
+      const updateData = { [field]: value };
+
+      const response = await fetch(`/api/coffee-shops/${coffeeShopId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (response.ok) {
+        await refreshCoffeeShops();
+
+        // Update selected coffee shop with new video data
+        setSelectedCoffeeShop((prev) =>
+          prev
+            ? {
+                ...prev,
+                [field]: value,
+              }
+            : null
+        );
+
+        // Show success feedback (optional)
+        console.log(`Video ${field} updated successfully`);
+      } else {
+        const error = await response.json();
+        alert(`Gagal update video: ${error.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error updating video:", error);
+      alert("Gagal update video");
+    }
+  };
+
   // Handle logout
   const handleLogout = async () => {
     if (!confirm("Are you sure you want to logout?")) {
@@ -582,6 +660,8 @@ const RealEstateDashboard: React.FC = () => {
           parking: [] as string[],
           paymentMethods: [] as string[],
           facilities: [] as string[],
+          videoUrl: "",
+          videoPlatform: "",
           lat: 0,
           lng: 0,
         });
@@ -674,14 +754,35 @@ const RealEstateDashboard: React.FC = () => {
             mushola: shop.mushola,
             parking: shop.parking,
             paymentMethods: shop.paymentMethods,
+            videoUrl: shop.videoUrl,
+            videoPlatform: shop.videoPlatform,
           };
           setSelectedCoffeeShop(simpleShop);
           setCurrentImageIndex(0); // Reset to first image
         });
 
-        // Add popup with shop name and selection status
+        // Add popup with shop name, video, and selection status
+        const videoEmbedUrl = shop.videoUrl && shop.videoPlatform ? getVideoEmbedUrl(shop.videoUrl, shop.videoPlatform) : null;
+
         marker.bindPopup(`
-          <div class="text-center">
+          <div class="text-center max-w-xs">
+            ${
+              videoEmbedUrl
+                ? `
+              <div class="mb-3">
+                <iframe
+                  width="280"
+                  height="157"
+                  src="${videoEmbedUrl}"
+                  frameborder="0"
+                  allow="autoplay; encrypted-media"
+                  allowfullscreen
+                  class="rounded-lg shadow-sm"
+                ></iframe>
+              </div>
+            `
+                : ""
+            }
             <h3 class="font-semibold text-gray-900">${shop.name}</h3>
             <p class="text-sm text-gray-500">${shop.address}</p>
             <p class="text-sm ${shop.wfc ? "text-green-600" : "text-gray-600"}">${shop.wfc ? "Bisa WFC" : "Tidak WFC"}</p>
@@ -1285,6 +1386,35 @@ const RealEstateDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Video URL & Platform */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Video URL</label>
+                  <input
+                    type="url"
+                    name="videoUrl"
+                    value={editFormData.videoUrl}
+                    onChange={handleEditInputChange}
+                    placeholder="https://youtube.com/watch?v=..."
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">YouTube, Vimeo, atau Instagram URL</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Platform Video</label>
+                  <select
+                    name="videoPlatform"
+                    value={editFormData.videoPlatform}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+                    <option value="">Pilih platform</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="vimeo">Vimeo</option>
+                    <option value="instagram">Instagram</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Edit Logo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo Coffee Shop</label>
@@ -1675,11 +1805,55 @@ const RealEstateDashboard: React.FC = () => {
             {selectedCoffeeShop && (
               <div className="p-5">
                 {/* Header with Edit Button */}
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-900">{selectedCoffeeShop.name}</h2>
                   <button onClick={openEditDrawer} className="p-2 hover:bg-gray-100 rounded-lg transition" title="Edit Coffee Shop">
                     <Edit3 className="w-4 h-4 text-gray-500" />
                   </button>
+                </div>
+
+                {/* Video URL Section - Direct Edit in Sidebar */}
+                <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <Video className="w-4 h-4 text-gray-600" />
+                    Video Popup Marker
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Video URL</label>
+                      <input
+                        type="url"
+                        value={selectedCoffeeShop?.videoUrl || ""}
+                        onChange={(e) => selectedCoffeeShop && handleQuickVideoUpdate(selectedCoffeeShop.id, "videoUrl", e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">YouTube, Vimeo, atau Instagram URL</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Platform</label>
+                      <select
+                        value={selectedCoffeeShop?.videoPlatform || ""}
+                        onChange={(e) => selectedCoffeeShop && handleQuickVideoUpdate(selectedCoffeeShop.id, "videoPlatform", e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+                        <option value="">Pilih platform</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="vimeo">Vimeo</option>
+                        <option value="instagram">Instagram</option>
+                      </select>
+                    </div>
+
+                    {selectedCoffeeShop?.videoUrl && selectedCoffeeShop?.videoPlatform && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-green-700">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-medium">Video akan autoplay di popup marker</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Address */}
@@ -2104,6 +2278,34 @@ const RealEstateDashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+                  {/* Video URL & Platform */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Video URL</label>
+                      <input
+                        type="url"
+                        name="videoUrl"
+                        value={editFormData.videoUrl}
+                        onChange={handleEditInputChange}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">YouTube, Vimeo, atau Instagram URL</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Platform Video</label>
+                      <select
+                        name="videoPlatform"
+                        value={editFormData.videoPlatform}
+                        onChange={handleEditInputChange}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+                        <option value="">Pilih platform</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="vimeo">Vimeo</option>
+                        <option value="instagram">Instagram</option>
+                      </select>
+                    </div>
+                  </div>
 
                   {/* Edit Logo */}
                   <div>
@@ -2439,7 +2641,7 @@ const RealEstateDashboard: React.FC = () => {
                 {/* Error Message */}
                 {loginError && (
                   <div className="flex items-center gap-2 p-4 bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-xl text-red-100">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <AlertCircle className="w-5 h-5 shrink-0" />
                     <span className="text-sm">{loginError}</span>
                   </div>
                 )}

@@ -44,6 +44,8 @@ interface CoffeeShop {
   mushola?: boolean;
   parking?: string[];
   paymentMethods?: string[];
+  videoUrl?: string;
+  videoPlatform?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -602,12 +604,83 @@ const Maps = () => {
           icon: createCustomIcon(shop.logo, false),
         });
 
-        marker.bindPopup(`
-          <div class="text-center">
-            <h3 class="font-semibold text-gray-900">${shop.name}</h3>
-            <p class="text-sm text-gray-500">${shop.address}</p>
+        // Function to generate video embed HTML
+        const getVideoEmbed = (shop: CoffeeShop) => {
+          if (!shop.videoUrl || !shop.videoPlatform) return "";
+
+          switch (shop.videoPlatform) {
+            case "youtube":
+              const youtubeId = shop.videoUrl.split("v=")[1]?.split("&")[0] || shop.videoUrl.split("/").pop()?.split("?")[0];
+              if (youtubeId) {
+                return `
+                  <iframe
+                    src="https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}&modestbranding=1&rel=0"
+                    width="280"
+                    height="158"
+                    frameborder="0"
+                    allow="autoplay; encrypted-media"
+                    allowfullscreen
+                    class="rounded-lg mt-2 mx-auto block"
+                    style="max-width: 100%;"
+                  ></iframe>
+                `;
+              }
+              break;
+            case "vimeo":
+              const vimeoId = shop.videoUrl.split("/").pop()?.split("?")[0];
+              if (vimeoId) {
+                return `
+                  <iframe
+                    src="https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&loop=1&background=1"
+                    width="280"
+                    height="158"
+                    frameborder="0"
+                    allow="autoplay"
+                    allowfullscreen
+                    class="rounded-lg mt-3 mx-auto block"
+                    style="max-width: 100%;"
+                  ></iframe>
+                `;
+              }
+              break;
+            case "instagram":
+              if (shop.videoUrl.includes("instagram.com/p/")) {
+                const postId = shop.videoUrl.split("/p/")[1]?.split("/")[0];
+                if (postId) {
+                  return `
+                    <iframe
+                      src="https://www.instagram.com/p/${postId}/embed/"
+                      width="280"
+                      height="320"
+                      frameborder="0"
+                      scrolling="no"
+                      allowtransparency="true"
+                      class="rounded-lg mt-3 mx-auto block"
+                      style="max-width: 100%;"
+                    ></iframe>
+                  `;
+                }
+              }
+              break;
+          }
+          return "";
+        };
+
+        const videoEmbed = getVideoEmbed(shop);
+
+        marker.bindPopup(
+          `
+          <div class="popup-content text-center max-w-xs">
+            <h3 class="font-semibold text-black text-sm mb-2">${shop.name}</h3>
+            ${videoEmbed}
           </div>
-        `);
+        `,
+          {
+            maxWidth: 320,
+            minWidth: 280,
+            className: "custom-popup",
+          }
+        );
 
         marker.on("click", () => handleShopSelect(shop));
         marker.on("mouseover", () => marker.openPopup());
@@ -689,7 +762,7 @@ const Maps = () => {
                 <Marker position={userLocation} icon={userLocationIcon}>
                   <Popup>
                     <div className="min-w-[200px] max-w-[280px]">
-                      <h3 className="font-semibold text-gray-900 text-sm mb-2">Lokasi Anda</h3>
+                      <h3 className="font-semibold text-black text-sm mb-2">Lokasi Anda</h3>
                       <p className="text-xs text-gray-700 leading-relaxed whitespace-normal">{userLocationName || "Memuat alamat..."}</p>
                     </div>
                   </Popup>
@@ -906,5 +979,64 @@ const Maps = () => {
     </>
   );
 };
+
+// Custom CSS for popup styling
+const popupStyles = `
+  <style>
+    .custom-popup .leaflet-popup-content-wrapper {
+      background-color: white;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .custom-popup .leaflet-popup-content {
+      margin: 0;
+      padding: 0;
+      min-height: 80px;
+    }
+
+    .custom-popup .leaflet-popup-tip {
+      background-color: white;
+      border-left: 1px solid #e5e7eb;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .popup-content {
+      padding: 16px;
+    }
+
+    .popup-content h3 {
+      font-size: 14px;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+
+    .popup-content p {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #6b7280;
+    }
+
+    .popup-content iframe {
+      border-radius: 8px;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+  </style>
+`;
+
+// Inject styles on component mount
+if (typeof document !== "undefined") {
+  const existingStyle = document.getElementById("maps-popup-styles");
+  if (!existingStyle) {
+    const styleElement = document.createElement("div");
+    styleElement.id = "maps-popup-styles";
+    styleElement.innerHTML = popupStyles;
+    document.head.appendChild(styleElement);
+  }
+}
 
 export default Maps;

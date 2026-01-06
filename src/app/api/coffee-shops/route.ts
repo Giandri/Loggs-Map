@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
         mushola: body.mushola,
         parking: body.parking,
         paymentMethods: body.paymentMethods,
+        videoUrl: body.videoUrl,
+        videoPlatform: body.videoPlatform,
       },
     });
 
