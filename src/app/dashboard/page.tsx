@@ -34,6 +34,8 @@ import {
   Save,
   Loader2,
   Trash2,
+  Upload,
+  Camera,
 } from "lucide-react";
 import PillNav from "@/components/ui/pill-nav";
 import { useCoffeeShops } from "@/hooks/useCoffeeShops";
@@ -179,6 +181,13 @@ const RealEstateDashboard: React.FC = () => {
     lng: 0,
   });
 
+  // Edit Logo and Photos State
+  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [editPhotoPreviews, setEditPhotoPreviews] = useState<string[]>([]);
+  const [editPhotoFiles, setEditPhotoFiles] = useState<Array<{ file: File; url?: string; isNew: boolean }>>([]);
+  const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+
   // Open edit drawer with selected coffee shop data
   const openEditDrawer = () => {
     if (selectedCoffeeShop) {
@@ -201,6 +210,14 @@ const RealEstateDashboard: React.FC = () => {
         lat: selectedCoffeeShop.lat || 0,
         lng: selectedCoffeeShop.lng || 0,
       });
+
+      // Initialize logo and photos
+      setEditLogoPreview(selectedCoffeeShop.logo || null);
+      setEditLogoFile(null);
+      setEditPhotoPreviews(selectedCoffeeShop.photos || []);
+      setEditPhotoFiles([]);
+      setPhotosToDelete([]);
+
       setIsEditDrawerOpen(true);
     }
   };
@@ -226,6 +243,106 @@ const RealEstateDashboard: React.FC = () => {
     });
   };
 
+  // Handle edit logo upload
+  const handleEditLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("File harus berupa gambar");
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ukuran logo maksimal 2MB");
+        return;
+      }
+      setEditLogoFile(file);
+      setEditLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Handle edit photo upload
+  const handleEditPhotoUpload = async (files: FileList | null) => {
+    if (!files) return;
+
+    const newFiles = Array.from(files);
+    const validImages = newFiles.filter((file) => file.type.startsWith("image/"));
+
+    if (validImages.length !== newFiles.length) {
+      alert("Hanya file gambar yang diperbolehkan");
+      return;
+    }
+
+    // Check total limit (existing photos + new photos - photos to delete)
+    const currentPhotosCount = selectedCoffeeShop?.photos?.length || 0;
+    const remainingPhotos = currentPhotosCount - photosToDelete.length;
+    const totalCount = remainingPhotos + editPhotoFiles.length + validImages.length;
+
+    if (totalCount > 5) {
+      alert("Maksimal 5 gambar diperbolehkan");
+      return;
+    }
+
+    try {
+      // Upload each file to Vercel Blob
+      const uploadPromises = validImages.map(async (file, index) => {
+        const timestamp = Date.now();
+        const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+        const uniqueFilename = `edit_photo_${timestamp}_${index}_${cleanName}`;
+
+        console.log("Uploading edit photo:", uniqueFilename);
+
+        const response = await fetch(`/api/upload?filename=${encodeURIComponent(uniqueFilename)}`, {
+          method: "POST",
+          body: file,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Upload failed:", errorText);
+          throw new Error(`Upload failed for ${file.name}`);
+        }
+
+        const result = await response.json();
+        console.log("Edit photo upload result:", result);
+
+        return {
+          file,
+          url: result.url,
+          isNew: true,
+        };
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      console.log("All edit photo uploads complete:", uploadResults);
+
+      // Update state with uploaded images
+      const newEditPhotoFiles = [...editPhotoFiles, ...uploadResults];
+      const newEditPhotoPreviews = [...editPhotoPreviews, ...uploadResults.map((r) => r.url)];
+
+      setEditPhotoFiles(newEditPhotoFiles.slice(0, 5));
+      setEditPhotoPreviews(newEditPhotoPreviews.slice(0, 5));
+
+      console.log("Edit photo previews updated:", newEditPhotoPreviews);
+    } catch (error) {
+      console.error("Edit photo upload error:", error);
+      alert("Gagal upload gambar. Silakan coba lagi.");
+    }
+  };
+
+  // Remove edit photo
+  const removeEditPhoto = (index: number, isExistingPhoto: boolean = false, photoUrl?: string) => {
+    if (isExistingPhoto && photoUrl) {
+      // Mark existing photo for deletion
+      setPhotosToDelete(prev => [...prev, photoUrl]);
+    }
+
+    const newFiles = editPhotoFiles.filter((_, i) => i !== index);
+    const newPreviews = editPhotoPreviews.filter((_, i) => i !== index);
+
+    setEditPhotoFiles(newFiles);
+    setEditPhotoPreviews(newPreviews);
+  };
+
   // Handle update submit
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,23 +350,109 @@ const RealEstateDashboard: React.FC = () => {
 
     setIsUpdating(true);
     try {
+      let finalLogoUrl = selectedCoffeeShop.logo;
+      let finalPhotoUrls = selectedCoffeeShop.photos || [];
+      const filesToDelete: string[] = [];
+
+      // Handle logo upload
+      if (editLogoFile) {
+        const logoResponse = await fetch(`/api/upload?filename=logo_edit_${selectedCoffeeShop.id}_${Date.now()}`, {
+          method: "POST",
+          body: editLogoFile,
+        });
+
+        if (logoResponse.ok) {
+          const logoResult = await logoResponse.json();
+          finalLogoUrl = logoResult.url;
+
+          // Mark old logo for deletion if it exists and is from Vercel Blob
+          if (selectedCoffeeShop.logo && selectedCoffeeShop.logo.includes('vercel-storage.com')) {
+            // Extract pathname from Vercel Blob URL
+            const url = new URL(selectedCoffeeShop.logo);
+            const pathname = url.pathname;
+            filesToDelete.push(pathname);
+          }
+        } else {
+          console.warn("Logo upload failed, keeping existing logo");
+        }
+      }
+
+      // Handle photos marked for deletion
+      finalPhotoUrls = finalPhotoUrls.filter(url => !photosToDelete.includes(url));
+
+      // Mark deleted photos for file deletion
+      photosToDelete.forEach(url => {
+        if (url.includes('vercel-storage.com')) {
+          try {
+            const blobUrl = new URL(url);
+            const pathname = blobUrl.pathname;
+            filesToDelete.push(pathname);
+          } catch (error) {
+            console.warn('Could not parse photo URL for deletion:', url);
+          }
+        }
+      });
+
+      // Add new uploaded photos
+      const newPhotoUrls = editPhotoFiles.filter(file => file.url).map(file => file.url!);
+      finalPhotoUrls = [...finalPhotoUrls, ...newPhotoUrls].slice(0, 5); // Ensure max 5 photos
+
+      // Delete old files from Vercel Blob
+      if (filesToDelete.length > 0) {
+        console.log('Deleting old files from Vercel Blob:', filesToDelete);
+        try {
+          const deletePromises = filesToDelete.map(pathname =>
+            fetch(`/api/upload?pathname=${encodeURIComponent(pathname)}`, {
+              method: 'DELETE',
+            })
+          );
+          const deleteResults = await Promise.allSettled(deletePromises);
+          deleteResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.warn(`Failed to delete file: ${filesToDelete[index]}`, result.reason);
+            } else {
+              console.log(`Successfully deleted file: ${filesToDelete[index]}`);
+            }
+          });
+        } catch (error) {
+          console.error('Error deleting old files:', error);
+          // Continue with update even if deletion fails
+        }
+      }
+
+      const updateData = {
+        ...editFormData,
+        lat: parseFloat(String(editFormData.lat)),
+        lng: parseFloat(String(editFormData.lng)),
+        photos: finalPhotoUrls,
+        logo: finalLogoUrl,
+      };
+
       const response = await fetch(`/api/coffee-shops/${selectedCoffeeShop.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...editFormData,
-          lat: parseFloat(String(editFormData.lat)),
-          lng: parseFloat(String(editFormData.lng)),
-          photos: selectedCoffeeShop.photos,
-          logo: selectedCoffeeShop.logo,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
         await refreshCoffeeShops();
         setIsEditDrawerOpen(false);
+
         // Update selected coffee shop with new data
-        setSelectedCoffeeShop((prev) => (prev ? { ...prev, ...editFormData } : null));
+        setSelectedCoffeeShop((prev) => (prev ? {
+          ...prev,
+          ...editFormData,
+          photos: finalPhotoUrls,
+          logo: finalLogoUrl
+        } : null));
+
+        // Reset edit states
+        setEditLogoPreview(null);
+        setEditLogoFile(null);
+        setEditPhotoPreviews([]);
+        setEditPhotoFiles([]);
+        setPhotosToDelete([]);
+
         alert("Coffee shop berhasil diupdate!");
       } else {
         const error = await response.json();
@@ -360,11 +563,60 @@ const RealEstateDashboard: React.FC = () => {
     avgAge: "5Y",
   });
 
+  // File Management State
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [isDeletingFile, setIsDeletingFile] = useState<string | null>(null);
+  const [showFileManager, setShowFileManager] = useState(false);
+
+  // Load uploaded files
+  const loadUploadedFiles = async () => {
+    setIsLoadingFiles(true);
+    try {
+      const response = await fetch('/api/upload');
+      if (response.ok) {
+        const data = await response.json();
+        setUploadedFiles(data.files);
+      } else {
+        console.error('Failed to load files');
+      }
+    } catch (error) {
+      console.error('Error loading files:', error);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  // Delete file
+  const deleteFile = async (pathname: string, url: string) => {
+    setIsDeletingFile(pathname);
+    try {
+      const response = await fetch(`/api/upload?pathname=${encodeURIComponent(pathname)}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setUploadedFiles(prev => prev.filter(file => file.pathname !== pathname));
+        alert('File berhasil dihapus!');
+      } else {
+        const error = await response.json();
+        alert(`Gagal hapus file: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Gagal hapus file');
+    } finally {
+      setIsDeletingFile(null);
+    }
+  };
+
   const pillNavItems = [
     { id: "home", icon: <Home size={20} />, label: "Home" },
     { id: "zoom-in", icon: <PlusCircle size={20} />, label: "Add Coffee Shop" },
     { id: "zoom-out", icon: <MinusCircle size={20} />, label: "Hapus Coffee Shop" },
     { id: "location", icon: <MapPin size={20} />, label: "Location" },
+    { id: "files", icon: <Eye size={20} />, label: "File Manager" },
   ];
 
   useEffect(() => {
@@ -435,7 +687,20 @@ const RealEstateDashboard: React.FC = () => {
         </div>
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center space-y-8">
-          <PillNav items={pillNavItems} defaultActive="home" className="flex flex-col items-center justify-center" onRefreshData={refreshCoffeeShops} selectedCoffeeShop={selectedCoffeeShop} onCoffeeShopSelect={setSelectedCoffeeShop} />
+          <PillNav
+            items={pillNavItems}
+            defaultActive="home"
+            className="flex flex-col items-center justify-center"
+            onRefreshData={refreshCoffeeShops}
+            selectedCoffeeShop={selectedCoffeeShop}
+            onCoffeeShopSelect={setSelectedCoffeeShop}
+            onItemClick={(itemId) => {
+              if (itemId === "files") {
+                setShowFileManager(true);
+                loadUploadedFiles();
+              }
+            }}
+          />
         </div>
       </div>
 
@@ -902,6 +1167,111 @@ const RealEstateDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Edit Logo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo Coffee Shop</label>
+                <div className="flex items-center space-x-4">
+                  <input type="file" accept="image/*" onChange={handleEditLogoUpload} className="hidden" id="edit-logo-upload" />
+                  <label htmlFor="edit-logo-upload" className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors bg-gray-50">
+                    {editLogoPreview ? (
+                      <img src={editLogoPreview} alt="Logo preview" className="w-full h-full object-cover rounded-lg" />
+                    ) : (
+                      <div className="text-center">
+                        <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                        <span className="text-xs text-gray-500">Logo</span>
+                      </div>
+                    )}
+                  </label>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600">Upload logo baru (maksimal 2MB)</p>
+                    {editLogoFile && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ {editLogoFile.name} ({(editLogoFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
+                    {!editLogoFile && editLogoPreview && (
+                      <p className="text-xs text-blue-600 mt-1">Logo saat ini akan dipertahankan</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Edit Photos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Foto Coffee Shop</label>
+
+                {/* Current Photos + New Photos */}
+                {editPhotoPreviews.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500 mb-2">Foto saat ini:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {editPhotoPreviews.map((preview, index) => {
+                        const isExistingPhoto = selectedCoffeeShop?.photos?.includes(preview);
+                        const isMarkedForDeletion = photosToDelete.includes(preview);
+
+                        return (
+                          <div key={index} className={`relative group ${isMarkedForDeletion ? 'opacity-50' : ''}`}>
+                            <div className="aspect-square bg-gray-100 rounded-md overflow-hidden border border-gray-200">
+                              <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                              {isMarkedForDeletion && (
+                                <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                                  <span className="text-red-600 text-xs font-medium">Akan Dihapus</span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeEditPhoto(index, isExistingPhoto, preview)}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                                <X size={14} />
+                              </button>
+                            </div>
+                            {isExistingPhoto && !isMarkedForDeletion && (
+                              <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">
+                                Lama
+                              </div>
+                            )}
+                            {!isExistingPhoto && (
+                              <div className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
+                                Baru
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Area */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => handleEditPhotoUpload(e.target.files)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all hover:border-gray-400 bg-gray-50">
+                    <Camera className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-600">Klik untuk upload foto baru</p>
+                    <p className="text-xs text-gray-500 mt-1">Maksimal 5 foto • JPG, PNG, WebP</p>
+                  </div>
+                </div>
+
+                {/* Photo Counter */}
+                {editPhotoPreviews.length > 0 && (
+                  <div className="mt-3 text-xs text-center">
+                    <div className="text-gray-500">
+                      {editPhotoPreviews.length} dari 5 foto
+                      {photosToDelete.length > 0 && ` (${photosToDelete.length} akan dihapus)`}
+                    </div>
+                    {editPhotoFiles.some((file) => file.isNew) && (
+                      <div className="text-green-600 mt-1">⚠️ Foto baru akan ditambahkan</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Parking Options */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Parkir</label>
@@ -1043,6 +1413,110 @@ const RealEstateDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* File Manager Drawer */}
+      {showFileManager && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 z-50 transition-opacity" onClick={() => setShowFileManager(false)} />
+
+          {/* Drawer */}
+          <div className="fixed right-0 top-0 h-full w-[500px] bg-white z-50 shadow-2xl overflow-y-auto animate-slide-in-right">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">File Manager</h3>
+              <button onClick={() => setShowFileManager(false)} className="p-2 hover:bg-gray-100 rounded-lg transition">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-sm text-gray-600">Kelola file yang sudah diupload ke Vercel Blob</p>
+                <button
+                  onClick={loadUploadedFiles}
+                  disabled={isLoadingFiles}
+                  className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isLoadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                  Refresh
+                </button>
+              </div>
+
+              {isLoadingFiles ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-600">Loading files...</span>
+                </div>
+              ) : uploadedFiles.length === 0 ? (
+                <div className="text-center py-12">
+                  <Eye className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Belum ada file yang diupload</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            {file.url.includes('.jpg') || file.url.includes('.jpeg') || file.url.includes('.png') || file.url.includes('.webp') ? (
+                              <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                                <img
+                                  src={file.url}
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = '/api/placeholder/40/40?text=IMG';
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                <span className="text-xs text-gray-500">📄</span>
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.uploadedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View
+                            </a>
+                            <button
+                              onClick={() => deleteFile(file.pathname, file.url)}
+                              disabled={isDeletingFile === file.pathname}
+                              className="text-xs text-red-600 hover:text-red-800 underline disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {isDeletingFile === file.pathname ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

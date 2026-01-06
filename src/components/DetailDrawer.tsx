@@ -44,6 +44,69 @@ const DetailDrawer = ({ isOpen, onOpenChange, selectedShop, onGetRoute, isLoadin
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Function to open Instagram with deep linking
+  const openInstagram = (instagramUrl: string) => {
+    try {
+      let username = "";
+
+      // Extract username from various Instagram URL formats
+      if (instagramUrl.includes("instagram.com/")) {
+        // Handle full URL: https://www.instagram.com/username/ or https://instagram.com/username/
+        const match = instagramUrl.match(/instagram\.com\/([^\/\?]+)/);
+        if (match) {
+          username = match[1];
+        }
+      } else if (instagramUrl.startsWith("@")) {
+        // Handle @username format
+        username = instagramUrl.substring(1);
+      } else if (!instagramUrl.includes("/") && !instagramUrl.includes(".")) {
+        // Handle plain username
+        username = instagramUrl;
+      }
+
+      if (username) {
+        // Try to open Instagram app first (mobile deep link)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+
+        if (isIOS || isAndroid) {
+          // Mobile: Try app first, fallback to web
+          const appUrl = `instagram://user?username=${username}`;
+          const webUrl = `https://www.instagram.com/${username}/`;
+
+          // For iOS
+          if (isIOS) {
+            window.location.href = appUrl;
+            // If app doesn't open within 1 second, fallback to web
+            setTimeout(() => {
+              window.open(webUrl, "_blank");
+            }, 1000);
+          }
+          // For Android
+          else if (isAndroid) {
+            // Use intent URL for Android
+            const intentUrl = `intent://instagram.com/_u/${username}/#Intent;package=com.instagram.android;scheme=https;end`;
+            window.location.href = intentUrl;
+            // Fallback to web
+            setTimeout(() => {
+              window.open(webUrl, "_blank");
+            }, 1000);
+          }
+        } else {
+          // Desktop: Open web version
+          window.open(`https://www.instagram.com/${username}/`, "_blank");
+        }
+      } else {
+        // If we can't parse the username, just open the original URL
+        window.open(instagramUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Error opening Instagram:", error);
+      // Fallback: just open the original URL
+      window.open(instagramUrl, "_blank");
+    }
+  };
+
   const nextImage = () => {
     try {
       if (selectedShop?.photos && selectedShop.photos.length > 0) {
@@ -297,10 +360,10 @@ const DetailDrawer = ({ isOpen, onOpenChange, selectedShop, onGetRoute, isLoadin
             {/* Social Links */}
             <div className="flex gap-2">
               {selectedShop?.instagram && (
-                <a href={selectedShop.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-white bg-pink-500/80 px-3 py-1.5 rounded-full hover:bg-pink-500 transition">
+                <button onClick={() => openInstagram(selectedShop.instagram!)} className="flex items-center gap-1 text-xs text-white bg-pink-500/80 px-3 py-1.5 rounded-full hover:bg-pink-500 transition">
                   <Instagram className="w-3.5 h-3.5" />
                   Instagram
-                </a>
+                </button>
               )}
               <a
                 href={`https://www.google.com/maps?q=${selectedShop?.lat},${selectedShop?.lng}`}

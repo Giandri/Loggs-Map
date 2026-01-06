@@ -48,18 +48,7 @@ const ControlButton = ({ id, icon, onClick, title, isActive = false, delay = 0 }
   </motion.button>
 );
 
-const MapControls = ({
-  activeLayer,
-  onLayerChange,
-  onGuideOpen,
-  onRecenter,
-  onLocationClick,
-  onBookmarkClick,
-  onFilterClick,
-  isLocating = false,
-  isOpen: externalIsOpen,
-  onOpenChange
-}: MapControlsProps) => {
+const MapControls = ({ activeLayer, onLayerChange, onGuideOpen, onRecenter, onLocationClick, onBookmarkClick, onFilterClick, isLocating = false, isOpen: externalIsOpen, onOpenChange }: MapControlsProps) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
 
   // Use external control if provided, otherwise use internal state
@@ -68,20 +57,26 @@ const MapControls = ({
 
   useEffect(() => {
     const handleToggle = (e: any) => {
-      if (typeof e.detail === 'boolean') {
+      if (typeof e.detail === "boolean") {
         setIsOpen(e.detail);
       }
     };
 
-    window.addEventListener('set-map-controls-open', handleToggle);
-    return () => window.removeEventListener('set-map-controls-open', handleToggle);
+    window.addEventListener("set-map-controls-open", handleToggle);
+    return () => window.removeEventListener("set-map-controls-open", handleToggle);
   }, [setIsOpen]);
 
   return (
     <motion.div id="map-controls" className="absolute right-3 bottom-4 sm:right-6 sm:bottom-8 z-1000" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.5 }}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <motion.button id="map-controls-trigger" className="bg-white p-3 sm:p-4 rounded-full shadow-md hover:bg-gray-50 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} animate={{ rotate: isOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
+          <motion.button
+            id="map-controls-trigger"
+            className="bg-white p-3 sm:p-4 rounded-full shadow-md hover:bg-gray-50 transition-colors"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            animate={{ rotate: isOpen ? 45 : 0 }}
+            transition={{ duration: 0.2 }}>
             <Grid className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
           </motion.button>
         </PopoverTrigger>
@@ -97,8 +92,8 @@ const MapControls = ({
                   {/* Guide / Help */}
                   <ControlButton id="info-button" icon={<span className="text-sm sm:text-base font-medium">?</span>} onClick={onGuideOpen} title="Panduan Penggunaan" delay={1} />
 
-                  {/* Filter */}
-                  <ControlButton id="filter-button" icon={<Funnel className="w-4 h-4 sm:w-5 sm:h-5" />} onClick={onFilterClick} title="Filter" delay={2} />
+                  {/* Filter - Coming Soon */}
+                  <ControlButton id="filter-button" icon={<Funnel className="w-4 h-4 sm:w-5 sm:h-5 opacity-50" />} onClick={onFilterClick} title="Filter - Coming Soon" delay={2} />
 
                   {/* Recenter */}
                   <ControlButton id="recenter-button" icon={<Target className="w-4 h-4 sm:w-5 sm:h-5" />} onClick={onRecenter} title="Area Sekitar" delay={3} />
