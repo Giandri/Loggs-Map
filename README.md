@@ -44,10 +44,12 @@ For the full feature set, open the [live demo](https://maps.loggsvisual.com).
   <img src="docs/screenshots/map-mobile.jpg" alt="Mobile map" width="280">
 </p>
 
-## Stack
+## Tech Stack
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,prisma,postgres,vercel,leaflet" alt="Next.js, React, TypeScript, Tailwind CSS, Prisma, PostgreSQL, Vercel, Leaflet">
+  <a href="https://skillicons.dev">
+    <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,prisma,postgres,supabase,vercel,nodejs&perline=9" alt="Next.js, React, TypeScript, Tailwind CSS, Prisma, PostgreSQL, Supabase, Vercel, Node.js">
+  </a>
 </p>
 
 ## Quick Start
