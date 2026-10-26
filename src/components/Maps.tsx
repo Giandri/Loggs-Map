@@ -753,23 +753,7 @@ const Maps = () => {
           <Footer />
 
           {/* Leaflet Map */}
-          <MapContainer
-            id="map-container"
-            center={mapCenter}
-            zoom={14}
-            className="h-full w-full z-0 select-none 
-    touch-none 
-    touch-manipulation
-    [user-select:none]
-    [-webkit-user-select:none] 
-    [-webkit-touch-callout:none]
-    [-webkit-tap-highlight-color:transparent]
-    [-webkit-touch-callout:none]
-    [-moz-user-select:none]
-    [-ms-user-select:none]"
-            zoomControl={false}
-            attributionControl={false}
-            maxZoom={23}>
+          <MapContainer id="map-container" center={mapCenter} zoom={14} className="h-full w-full z-0 select-none touch-none touch-manipulation" zoomControl={false} attributionControl={false} maxZoom={23}>
             <MapController userLocation={userLocation} mapCenter={mapCenter} onMapReady={handleMapReady} />
 
             {activeLayer === "satellite" ? (
